@@ -1,4 +1,4 @@
-import { pool } from '../src/db/client.js';
+import { pool } from '../../src/db/client.js';
 
 /**
  * Retorna contagens por status para o painel de estatísticas do dashboard.

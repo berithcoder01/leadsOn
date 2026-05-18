@@ -1,4 +1,4 @@
-import { pool } from '../src/db/client.js';
+import { pool } from '../../src/db/client.js';
 
 // ─────────────────────────────────────────────
 // Listar leads com filtros, busca e paginação
