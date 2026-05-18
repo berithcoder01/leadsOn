@@ -140,18 +140,21 @@ export async function buscarLeadsGoogleMaps({ cidade, estado, termo, limite = 10
       let website = '';
 
       try {
-        // O botão de copiar telefone geralmente tem um ícone de telefone e contém o número no aria-label
-        const phoneButton = page.locator('button[data-tooltip="Copiar número de telefone"]');
+        const phoneButton = page.locator('button[data-item-id^="phone:"]').first();
         if (await phoneButton.isVisible({ timeout: 2000 })) {
-          const ariaLabel = await phoneButton.getAttribute('aria-label');
-          // ariaLabel = "Número de telefone: (44) 99999-9999"
-          mapsPhone = ariaLabel ? ariaLabel.split(':')[1]?.trim() : '';
+          const ariaLabel = await phoneButton.getAttribute('aria-label') || '';
+          mapsPhone = ariaLabel.includes(':') ? ariaLabel.split(':')[1]?.trim() : ariaLabel;
+        } else {
+          const fallbackBtn = page.locator('button[aria-label*="telefone" i], button[aria-label*="Telefone"]').first();
+          if (await fallbackBtn.isVisible({ timeout: 2000 })) {
+            const ariaLabel = await fallbackBtn.getAttribute('aria-label') || '';
+            mapsPhone = ariaLabel.includes(':') ? ariaLabel.split(':')[1]?.trim() : ariaLabel;
+          }
         }
       } catch (e) { /* sem telefone listado */ }
 
       try {
-        // O botão de site tem o data-tooltip "Abrir website"
-        const siteButton = page.locator('a[data-tooltip="Abrir website"]');
+        const siteButton = page.locator('a[data-item-id="authority"], a[data-tooltip*="website" i], a[data-tooltip*="site" i]').first();
         if (await siteButton.isVisible({ timeout: 2000 })) {
           website = await siteButton.getAttribute('href') || '';
         }
