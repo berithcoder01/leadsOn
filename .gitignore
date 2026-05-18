@@ -1,3 +1,6 @@
+# Configurações do Antigravity
+.agent/
+
 # Dependências de Pacotes
 node_modules/
 dist/
