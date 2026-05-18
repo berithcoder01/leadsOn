@@ -1,8 +1,8 @@
 import 'dotenv/config';
 
-import { buscarProximoLead, salvarResultadoIA, registrarErroIA } from './db/queries.js';
+import { buscarProximoLead, salvarResultadoIA, registrarErroIA, obterPitchComercial } from './db/queries.js';
 import { chamarOllama } from './ia/ollama.js';
-import { SYSTEM_PROMPT, montarPromptUsuario } from './ia/prompts.js';
+import { montarSystemPrompt, montarPromptUsuario } from './ia/prompts.js';
 import { gerarMarkdown } from './utils/template.js';
 
 
@@ -21,7 +21,9 @@ export async function processarUmLead() {
   console.log(`[${hora}] ⚙️  Processando: ${lead.nome_original}`);
 
   try {
-    const resultado = await chamarOllama(SYSTEM_PROMPT, montarPromptUsuario(lead));
+    const pitch = await obterPitchComercial();
+    const systemPrompt = montarSystemPrompt(pitch);
+    const resultado = await chamarOllama(systemPrompt, montarPromptUsuario(lead));
 
     const nomeLimpo = resultado.nome_limpo ?? lead.nome_original;
     const segmentoDetectado = resultado.segmento_detectado ?? null;

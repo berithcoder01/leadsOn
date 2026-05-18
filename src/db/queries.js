@@ -51,3 +51,32 @@ export async function registrarErroIA(id, mensagem, tentativas) {
     WHERE id = $4
   `, [novoStatus, mensagem, tentativas + 1, id]);
 }
+
+/**
+ * Cria a tabela de configuração se não existir e popula o pitch comercial padrão.
+ */
+export async function iniciarTabelaConfig() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS config_agente (
+      chave  TEXT PRIMARY KEY,
+      valor  TEXT NOT NULL
+    );
+  `);
+  await pool.query(`
+    INSERT INTO config_agente (chave, valor)
+    VALUES ('pitch_comercial', 'Oferecer ajuda para aumentar a presença digital e atração de clientes locais específicos para o nicho dele, apresentando de forma sutil a BerithCode como parceira tecnológica.')
+    ON CONFLICT (chave) DO NOTHING;
+  `);
+}
+
+/**
+ * Recupera o pitch comercial personalizado salvo no Supabase.
+ */
+export async function obterPitchComercial() {
+  try {
+    const { rows } = await pool.query("SELECT valor FROM config_agente WHERE chave = 'pitch_comercial'");
+    return rows[0]?.valor ?? 'Oferecer ajuda para aumentar a presença digital e atração de clientes locais específicos para o nicho dele, apresentando de forma sutil a BerithCode como parceira tecnológica.';
+  } catch (e) {
+    return 'Oferecer ajuda para aumentar a presença digital e atração de clientes locais específicos para o nicho dele, apresentando de forma sutil a BerithCode como parceira tecnológica.';
+  }
+}

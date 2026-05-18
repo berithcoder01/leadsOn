@@ -36,7 +36,8 @@ import {
   ControlOutlined,
   PlayCircleOutlined,
   StopOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -88,8 +89,39 @@ export default function App() {
   const [agentLogs, setAgentLogs] = useState([]);
   const [actionProcessLoading, setActionProcessLoading] = useState({ scraper: false, agent: false });
 
+  // Configuração da IA (Pitch Comercial)
+  const [pitch, setPitch] = useState('');
+  const [pitchLoading, setPitchLoading] = useState(false);
+
   const scraperTerminalRef = useRef(null);
   const agentTerminalRef = useRef(null);
+
+  // Carregar dados de configurações da IA
+  const carregarConfig = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/config`);
+      setPitch(res.data.pitch_comercial);
+    } catch (err) {
+      console.error('Falha ao carregar pitch comercial.', err);
+    }
+  };
+
+  // Salvar alterações de pitch comercial
+  const atualizarConfig = async () => {
+    if (!pitch.trim()) {
+      message.warning('O pitch comercial não pode ser vazio!');
+      return;
+    }
+    setPitchLoading(true);
+    try {
+      await axios.post(`${API_BASE}/config`, { pitch_comercial: pitch });
+      message.success('Pitch comercial atualizado com sucesso!');
+    } catch (err) {
+      message.error('Erro ao atualizar configurações da IA.');
+    } finally {
+      setPitchLoading(false);
+    }
+  };
 
   // Carregar dados principais
   const carregarDados = async () => {
@@ -129,6 +161,7 @@ export default function App() {
   useEffect(() => {
     carregarDados();
     carregarStatusProcessos();
+    carregarConfig();
 
     // Inicia conexão SSE para Logs em tempo real
     console.log('🔌 Conectando ao EventSource de Logs do Agente...');
@@ -463,6 +496,98 @@ export default function App() {
     </Card>
   );
 
+  // Painel de Configurações da IA
+  const renderConfigPanel = () => (
+    <Card 
+      title={
+        <Space>
+          <SettingOutlined style={{ color: '#0d9488' }} />
+          <span style={{ fontWeight: 700 }}>Proposta Comercial da IA (Sales Pitch)</span>
+        </Space>
+      }
+      style={{ minHeight: 450 }}
+    >
+      <Paragraph style={{ color: '#94a3b8', marginBottom: 20 }}>
+        Defina a proposta de valor que o robô da IA irá usar para abordar os leads MEI. A IA usará este escopo e objetivo comercial para escrever e personalizar mensagens do WhatsApp dinamicamente para o segmento e cidade de cada lead.
+      </Paragraph>
+
+      <Row gutter={[24, 24]}>
+        <Col xs={24} lg={14}>
+          <div style={{ marginBottom: 16 }}>
+            <Text style={{ fontWeight: 600, color: '#e2e8f0', display: 'block', marginBottom: 8 }}>
+              Instruções de Abordagem Comercial / Pitch da IA:
+            </Text>
+            <Input.TextArea
+              rows={8}
+              value={pitch}
+              onChange={(e) => setPitch(e.target.value)}
+              placeholder="Ex: Oferecer ajuda para criar um site profissional e otimizar o perfil do Google Meu Negócio da empresa para atrair mais clientes locais de forma sutil, apresentando a BerithCode como parceira tecnológica."
+              style={{
+                background: '#090b0f',
+                border: '1px solid #1c2130',
+                borderRadius: '8px',
+                color: '#e2e8f0',
+                padding: '12px',
+                fontSize: '14px',
+                lineHeight: '1.5'
+              }}
+            />
+          </div>
+          <Button 
+            type="primary" 
+            icon={<SendOutlined />}
+            loading={pitchLoading}
+            onClick={atualizarConfig}
+            size="large"
+            style={{
+              background: 'linear-gradient(135deg, #0d9488, #0b7a70)',
+              borderColor: '#0d9488',
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)'
+            }}
+          >
+            Salvar Proposta Comercial da IA
+          </Button>
+        </Col>
+
+        <Col xs={24} lg={10}>
+          <Card 
+            size="small" 
+            title={<span style={{ fontSize: 13, fontWeight: 700, color: '#0d9488' }}>💡 Ideias e Exemplos de Abordagem</span>}
+            style={{ background: '#131620', borderColor: '#232a3c' }}
+          >
+            <div style={{ padding: '8px 4px' }}>
+              <Paragraph style={{ fontSize: 12, color: '#94a3b8', margin: '0 0 12px 0' }}>
+                Copie e cole os modelos abaixo no campo ao lado para mudar o foco comercial da sua inteligência artificial:
+              </Paragraph>
+              
+              <div style={{ marginBottom: 12, borderLeft: '3px solid #0d9488', paddingLeft: 8 }}>
+                <Text style={{ fontSize: 11, fontWeight: 700, color: '#e2e8f0', display: 'block' }}>🌐 Modelo 1: Criação de Sites e Google Maps</Text>
+                <Text style={{ fontSize: 11, color: '#64748b' }}>
+                  "Oferecer ajuda para construir a presença digital (site institucional de alto impacto) e otimizar o Google Meu Negócio do MEI para aparecer nas buscas locais do bairro dele, apresentando a BerithCode."
+                </Text>
+              </div>
+
+              <div style={{ marginBottom: 12, borderLeft: '3px solid #ca8a04', paddingLeft: 8 }}>
+                <Text style={{ fontSize: 11, fontWeight: 700, color: '#e2e8f0', display: 'block' }}>💬 Modelo 2: Robôs de Atendimento e Automação</Text>
+                <Text style={{ fontSize: 11, color: '#64748b' }}>
+                  "Explicar que percebeu o potencial do negócio dele e propor a instalação de um atendente virtual com IA no WhatsApp para que ele não perca nenhum cliente fora do horário comercial, oferecendo teste grátis."
+                </Text>
+              </div>
+
+              <div style={{ borderLeft: '3px solid #ef4444', paddingLeft: 8 }}>
+                <Text style={{ fontSize: 11, fontWeight: 700, color: '#e2e8f0', display: 'block' }}>📈 Modelo 3: Tráfego Pago e Redes Sociais</Text>
+                <Text style={{ fontSize: 11, color: '#64748b' }}>
+                  "Apontar a importância de atrair clientes locais e oferecer consultoria gratuita de anúncios no Instagram e Facebook para lotar a agenda do segmento de atuação dele na região de abrangência geográfica."
+                </Text>
+              </div>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+    </Card>
+  );
+
   return (
     <ConfigProvider theme={customTheme}>
       <Layout style={{ minHeight: '100vh' }}>
@@ -643,6 +768,17 @@ export default function App() {
                         )}
                       </Col>
                     </Row>
+              },
+              {
+                key: '3',
+                label: (
+                  <span>
+                    <SettingOutlined /> Configurações da IA
+                  </span>
+                ),
+                children: (
+                  <div style={{ marginTop: 8 }}>
+                    {renderConfigPanel()}
                   </div>
                 ),
               }

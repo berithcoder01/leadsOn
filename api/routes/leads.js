@@ -139,3 +139,30 @@ export async function excluirLead(req, reply) {
   if (rowCount === 0) return reply.code(404).send({ erro: 'Lead não encontrado para exclusão' });
   return { ok: true, mensagem: 'Lead excluído com sucesso' };
 }
+
+// ─────────────────────────────────────────────
+// Obter configurações do Agente de IA
+// ─────────────────────────────────────────────
+export async function obterConfig(req, reply) {
+  const { rows } = await pool.query("SELECT valor FROM config_agente WHERE chave = 'pitch_comercial'");
+  const pitch = rows[0]?.valor ?? 'Oferecer ajuda para aumentar a presença digital e atração de clientes locais específicos para o nicho dele, apresentando de forma sutil a BerithCode como parceira tecnológica.';
+  return { pitch_comercial: pitch };
+}
+
+// ─────────────────────────────────────────────
+// Atualizar configurações do Agente de IA
+// ─────────────────────────────────────────────
+export async function salvarConfig(req, reply) {
+  const { pitch_comercial } = req.body;
+  if (!pitch_comercial) {
+    return reply.code(400).send({ erro: 'O campo pitch_comercial é obrigatório.' });
+  }
+
+  await pool.query(`
+    INSERT INTO config_agente (chave, valor)
+    VALUES ('pitch_comercial', $1)
+    ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor
+  `, [pitch_comercial]);
+
+  return { ok: true, pitch_comercial };
+}

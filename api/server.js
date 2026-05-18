@@ -2,8 +2,9 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 
-import { listarLeads, buscarLead, atualizarStatus, criarGrupoDisparo, excluirLead } from './routes/leads.js';
+import { listarLeads, buscarLead, atualizarStatus, criarGrupoDisparo, excluirLead, obterConfig, salvarConfig } from './routes/leads.js';
 import { buscarStats } from './routes/stats.js';
+import { iniciarTabelaConfig } from '../src/db/queries.js';
 import { 
   obterStatusProcessos, 
   iniciarScraperProcesso, 
@@ -28,6 +29,10 @@ app.patch('/api/leads/:id',       atualizarStatus);
 app.delete('/api/leads/:id',      excluirLead);
 app.post('/api/leads/grupo',      criarGrupoDisparo);
 
+// ── Rotas de Configuração da IA ─────────────────────────────
+app.get('/api/config',            obterConfig);
+app.post('/api/config',           salvarConfig);
+
 // ── Rotas de Estatísticas ───────────────────────────────────
 app.get('/api/stats',             buscarStats);
 
@@ -44,6 +49,10 @@ app.get('/health', async () => ({ ok: true, timestamp: new Date().toISOString() 
 
 // ── Iniciar ─────────────────────────────────────────────────
 try {
+  // Inicializa tabela de configurações antes de escutar conexões
+  await iniciarTabelaConfig();
+  console.log('📦 Banco de dados: Configurações verificadas/criadas.');
+  
   await app.listen({ port: PORT, host: '127.0.0.1' });
   console.log(`🌐 API LeadsOn rodando em http://127.0.0.1:${PORT}`);
 } catch (err) {
