@@ -180,6 +180,11 @@ export async function buscarLeadsGoogleMaps({ cidade, estado, termo, limite = 10
         }
       }
 
+      if (!whatsapp) {
+        process.stdout.write(`    ↳ Ignorado (Sem telefone): ${nome_original}\n`);
+        continue;
+      }
+
       leads.push({
         nome_original,
         whatsapp,
@@ -190,7 +195,7 @@ export async function buscarLeadsGoogleMaps({ cidade, estado, termo, limite = 10
         website
       });
 
-      process.stdout.write(`    ↳ Capturado: ${nome_original} | Tel: ${whatsapp || 'N/A'}\n`);
+      process.stdout.write(`    ↳ Capturado: ${nome_original} | Tel: ${whatsapp}\n`);
     }
 
   } catch (error) {

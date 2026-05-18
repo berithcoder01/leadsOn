@@ -2,7 +2,7 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 
-import { listarLeads, buscarLead, atualizarStatus, criarGrupoDisparo } from './routes/leads.js';
+import { listarLeads, buscarLead, atualizarStatus, criarGrupoDisparo, excluirLead } from './routes/leads.js';
 import { buscarStats } from './routes/stats.js';
 import { 
   obterStatusProcessos, 
@@ -25,6 +25,7 @@ await app.register(cors, {
 app.get('/api/leads',             listarLeads);
 app.get('/api/leads/:id',         buscarLead);
 app.patch('/api/leads/:id',       atualizarStatus);
+app.delete('/api/leads/:id',      excluirLead);
 app.post('/api/leads/grupo',      criarGrupoDisparo);
 
 // ── Rotas de Estatísticas ───────────────────────────────────

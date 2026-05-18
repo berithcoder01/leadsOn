@@ -1,36 +1,10 @@
-import { mkdir, writeFile } from 'fs/promises';
-import path from 'path';
 import 'dotenv/config';
 
 import { buscarProximoLead, salvarResultadoIA, registrarErroIA } from './db/queries.js';
 import { chamarOllama } from './ia/ollama.js';
 import { SYSTEM_PROMPT, montarPromptUsuario } from './ia/prompts.js';
-import { gerarMarkdown, gerarNomeArquivo } from './utils/template.js';
+import { gerarMarkdown } from './utils/template.js';
 
-// Por padrão, salva localmente dentro da pasta do projeto em 'storage/leads'
-// Se OBSIDIAN_VAULT_PATH for fornecido, usa ele.
-const STORAGE_PATH = process.env.OBSIDIAN_VAULT_PATH || './storage/leads';
-
-/**
- * Garante que a pasta destino dos arquivos Markdown existe antes de escrever.
- */
-async function garantirPasta(caminho) {
-  await mkdir(caminho, { recursive: true });
-}
-
-/**
- * Grava o arquivo .md diretamente na pasta local configurada.
- */
-async function gravarMarkdownLocal(nomeLimpo, conteudo) {
-  const caminhoPasta = path.resolve(STORAGE_PATH);
-  await garantirPasta(caminhoPasta);
-
-  const nomeArquivo = gerarNomeArquivo(nomeLimpo) + '.md';
-  const caminhoCompleto = path.join(caminhoPasta, nomeArquivo);
-
-  await writeFile(caminhoCompleto, conteudo, 'utf-8');
-  console.log(`📄 Salvo arquivo local: ${nomeArquivo}`);
-}
 
 /**
  * Ciclo principal: busca 1 lead → processa com IA → gera Markdown → grava arquivo local → atualiza banco com mensagem personalizada.
@@ -54,8 +28,7 @@ export async function processarUmLead() {
     const mensagemPersonalizada = resultado.mensagem_personalizada ?? '';
     const markdown = gerarMarkdown(lead, nomeLimpo, segmentoDetectado);
 
-    // Grava o arquivo físico na pasta local proprietária
-    await gravarMarkdownLocal(nomeLimpo, markdown);
+
 
     // Salva tudo no banco de dados, incluindo a mensagem personalizada
     await salvarResultadoIA(lead.id, nomeLimpo, markdown, mensagemPersonalizada);

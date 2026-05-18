@@ -35,7 +35,8 @@ import {
   CodeOutlined,
   ControlOutlined,
   PlayCircleOutlined,
-  StopOutlined
+  StopOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -195,6 +196,30 @@ export default function App() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  // Excluir lead permanentemente
+  const excluirLead = async (id) => {
+    Modal.confirm({
+      title: 'Excluir Lead',
+      content: 'Tem certeza que deseja excluir este lead permanentemente? Esta ação não pode ser desfeita.',
+      okText: 'Sim, excluir',
+      okType: 'danger',
+      cancelText: 'Cancelar',
+      onOk: async () => {
+        setActionLoading(true);
+        try {
+          await axios.delete(`${API_BASE}/leads/${id}`);
+          message.success('Lead excluído com sucesso');
+          setDrawerVisible(false);
+          carregarDados();
+        } catch (err) {
+          message.error('Falha ao excluir o lead.');
+        } finally {
+          setActionLoading(false);
+        }
+      }
+    });
   };
 
   // Criar grupo de disparo (20 a 50 leads selecionados)
@@ -764,6 +789,15 @@ export default function App() {
                     loading={actionLoading}
                   >
                     Registrar Falha
+                  </Button>
+                  <Button 
+                    type="primary" 
+                    danger 
+                    icon={<DeleteOutlined />} 
+                    onClick={() => excluirLead(selectedLead.id)}
+                    loading={actionLoading}
+                  >
+                    Excluir Lead
                   </Button>
                 </Space>
               </div>

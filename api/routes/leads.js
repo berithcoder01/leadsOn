@@ -128,3 +128,14 @@ export async function criarGrupoDisparo(req, reply) {
     })),
   };
 }
+
+// ─────────────────────────────────────────────
+// Excluir lead do banco de dados permanentemente
+// ─────────────────────────────────────────────
+export async function excluirLead(req, reply) {
+  const { id } = req.params;
+  const { rowCount } = await pool.query('DELETE FROM leads_mei WHERE id = $1', [id]);
+
+  if (rowCount === 0) return reply.code(404).send({ erro: 'Lead não encontrado para exclusão' });
+  return { ok: true, mensagem: 'Lead excluído com sucesso' };
+}
