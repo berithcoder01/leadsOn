@@ -1,0 +1,21 @@
+{
+  "name": "agente-prospeccao",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Agente LeadsOn — processamento de leads MEI com IA local",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "api": "node api/server.js",
+    "api:dev": "node --watch api/server.js",
+    "scraper": "node scraper/index.js",
+    "scraper:cidade": "node scraper/index.js --cidade"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "dotenv": "^16.0.0",
+    "fastify": "^4.27.0",
+    "pg": "^8.11.0",
+    "playwright": "^1.60.0"
+  }
+}

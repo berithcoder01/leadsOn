@@ -1,0 +1,116 @@
+:root {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  background-color: #0f1115;
+  color: #e2e8f0;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #0f1115;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(13, 148, 136, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(202, 138, 4, 0.03) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Custom scrollbar to look sleek and modern */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #141720;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #272c3d;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #0d9488;
+}
+
+/* Dashboard customized antd card overrides */
+.ant-card {
+  background-color: #171b26 !important;
+  border: 1px solid #232a3c !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-card:hover {
+  border-color: #0d9488 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(13, 148, 136, 0.1) !important;
+}
+
+/* Custom styling for tables */
+.ant-table {
+  background-color: #171b26 !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+
+.ant-table-thead > tr > th {
+  background-color: #1a202c !important;
+  color: #94a3b8 !important;
+  font-weight: 600 !important;
+  border-bottom: 1px solid #232a3c !important;
+}
+
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid #1f2533 !important;
+  color: #cbd5e1 !important;
+}
+
+.ant-table-row:hover > td {
+  background-color: #202636 !important;
+}
+
+.ant-table-pagination {
+  margin: 16px 0 !important;
+}
+
+/* Custom Drawer & Modal styles for dark mode */
+.ant-drawer-content {
+  background-color: #171b26 !important;
+  color: #e2e8f0 !important;
+}
+
+.ant-drawer-header {
+  background-color: #131620 !important;
+  border-bottom: 1px solid #232a3c !important;
+}
+
+.ant-drawer-title {
+  color: #e2e8f0 !important;
+}
+
+.ant-modal-content {
+  background-color: #171b26 !important;
+  color: #e2e8f0 !important;
+  border: 1px solid #232a3c !important;
+  border-radius: 16px !important;
+}
+
+.ant-modal-header {
+  background-color: #171b26 !important;
+}
+
+.ant-modal-title {
+  color: #e2e8f0 !important;
+}
