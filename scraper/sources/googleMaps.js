@@ -71,7 +71,7 @@ export async function buscarLeadsGoogleMaps({ cidade, estado, termo, limite = 10
     const query = encodeURIComponent(`${termo} em ${cidade} ${estado}`);
     const url = `https://www.google.com/maps/search/${query}`;
     
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     // Aceitar cookies do Google se aparecer (Europa/alguns IPs)
     try {
