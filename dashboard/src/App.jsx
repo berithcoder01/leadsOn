@@ -32,7 +32,7 @@ import {
   FileTextOutlined,
   CopyOutlined,
   ThunderboltOutlined,
-  TerminalOutlined,
+  CodeOutlined,
   ControlOutlined,
   PlayCircleOutlined,
   StopOutlined
@@ -355,7 +355,7 @@ export default function App() {
       title={
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
           <Space>
-            <TerminalOutlined style={{ color: '#0d9488' }} />
+            <CodeOutlined style={{ color: '#0d9488' }} />
             <span style={{ fontWeight: 700 }}>{title}</span>
           </Space>
           <Badge 
@@ -585,7 +585,7 @@ export default function App() {
                 key: '2',
                 label: (
                   <span>
-                    <TerminalOutlined /> Console do Agente (Live)
+                    <CodeOutlined /> Console do Agente (Live)
                   </span>
                 ),
                 children: (
