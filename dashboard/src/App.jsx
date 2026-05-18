@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Layout, 
   Typography, 
@@ -16,12 +16,11 @@ import {
   Badge, 
   Divider, 
   message, 
-  Tooltip,
   ConfigProvider,
-  theme
+  theme,
+  Tabs
 } from 'antd';
 import { 
-  UserOutlined, 
   WhatsAppOutlined, 
   InstagramOutlined, 
   GlobalOutlined, 
@@ -32,7 +31,11 @@ import {
   ReloadOutlined, 
   FileTextOutlined,
   CopyOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  TerminalOutlined,
+  ControlOutlined,
+  PlayCircleOutlined,
+  StopOutlined
 } from '@ant-design/icons';
 import axios from 'axios';
 
@@ -42,11 +45,10 @@ const { Search } = Input;
 
 const API_BASE = 'http://127.0.0.1:3001/api';
 
-// Configurando cores e temas para a BerithCode (foco em Teal/Teal-Dark e Ouro)
 const customTheme = {
   algorithm: theme.darkAlgorithm,
   token: {
-    colorPrimary: '#0d9488', // Teal moderno
+    colorPrimary: '#0d9488', // Teal
     colorBgBase: '#0f1115',  // Charcoal premium
     colorTextBase: '#e2e8f0',
     borderRadius: 8,
@@ -77,15 +79,24 @@ export default function App() {
   const [dispatchGroup, setDispatchGroup] = useState([]);
   const [groupLoading, setGroupLoading] = useState(false);
 
-  // Carregar dados
+  // ==========================================
+  // ESTADO DOS PROCESSOS (DAEMON / LOGS)
+  // ==========================================
+  const [processStatus, setProcessStatus] = useState({ scraper: 'stopped', agent: 'stopped' });
+  const [scraperLogs, setScraperLogs] = useState([]);
+  const [agentLogs, setAgentLogs] = useState([]);
+  const [actionProcessLoading, setActionProcessLoading] = useState({ scraper: false, agent: false });
+
+  const scraperTerminalRef = useRef(null);
+  const agentTerminalRef = useRef(null);
+
+  // Carregar dados principais
   const carregarDados = async () => {
     setLoading(true);
     try {
-      // 1. Carrega Estatísticas
       const resStats = await axios.get(`${API_BASE}/stats`);
       setStats(resStats.data);
 
-      // 2. Carrega Leads
       const resLeads = await axios.get(`${API_BASE}/leads`, {
         params: {
           page,
@@ -104,11 +115,66 @@ export default function App() {
     }
   };
 
+  // Carrega status dos processos locais (scraper e agent)
+  const carregarStatusProcessos = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/processes/status`);
+      setProcessStatus(res.data);
+    } catch (e) {
+      console.error('Falha ao checar status dos daemons.', e);
+    }
+  };
+
   useEffect(() => {
     carregarDados();
+    carregarStatusProcessos();
+
+    // Inicia conexão SSE para Logs em tempo real
+    console.log('🔌 Conectando ao EventSource de Logs do Agente...');
+    const eventSource = new EventSource(`${API_BASE}/processes/logs`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'scraper') {
+          setScraperLogs(prev => {
+            const updated = [...prev, data.log];
+            return updated.slice(-150); // Mantém no máximo 150 em tela
+          });
+        } else if (data.type === 'agent') {
+          setAgentLogs(prev => {
+            const updated = [...prev, data.log];
+            return updated.slice(-150);
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao processar mensagem do log stream:', err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error('Erro no canal de logs EventSource, tentando reconectar...', err);
+    };
+
+    return () => {
+      console.log('🔌 Desconectando EventSource de Logs.');
+      eventSource.close();
+    };
   }, [page, pageSize, statusFiltro]);
 
-  // Executar busca de leads ao apertar enter ou buscar
+  // Efeito para rolar automaticamente os terminais virtuais até a última linha
+  useEffect(() => {
+    if (scraperTerminalRef.current) {
+      scraperTerminalRef.current.scrollTop = scraperTerminalRef.current.scrollHeight;
+    }
+  }, [scraperLogs]);
+
+  useEffect(() => {
+    if (agentTerminalRef.current) {
+      agentTerminalRef.current.scrollTop = agentTerminalRef.current.scrollHeight;
+    }
+  }, [agentLogs]);
+
   const handleBusca = () => {
     setPage(1);
     carregarDados();
@@ -120,8 +186,6 @@ export default function App() {
     try {
       await axios.patch(`${API_BASE}/leads/${id}`, { status: novoStatus });
       message.success(`Lead atualizado para '${novoStatus}'`);
-      
-      // Atualiza o lead selecionado se o drawer estiver aberto
       if (selectedLead && selectedLead.id === id) {
         setSelectedLead(prev => ({ ...prev, status_prospeccao: novoStatus }));
       }
@@ -137,7 +201,6 @@ export default function App() {
   const processarGrupoDisparo = async () => {
     if (selectedRowKeys.length === 0) return;
     
-    // Verifica se todos estão como processado_ia
     const invalidLeads = selectedRows.filter(l => l.status_prospeccao !== 'processado_ia');
     if (invalidLeads.length > 0) {
       message.warning('Apenas leads com status "processado_ia" podem ser selecionados para disparo!');
@@ -159,10 +222,48 @@ export default function App() {
     }
   };
 
-  // Copiar mensagem para o clipboard
   const copiarMensagem = (texto) => {
     navigator.clipboard.writeText(texto);
     message.success('Mensagem copiada para a área de transferência! 📋');
+  };
+
+  // ==========================================
+  // COMANDOS DE INICIAR / PARAR PROCESSOS
+  // ==========================================
+  const gerenciarScraper = async (action, force = false) => {
+    setActionProcessLoading(prev => ({ ...prev, scraper: true }));
+    try {
+      if (action === 'start') {
+        await axios.post(`${API_BASE}/processes/scraper/start`, { force });
+        message.success(force ? 'Scraper Iniciado em Modo Forçado! 🚀' : 'Scraper Agendado para a Madrugada! ⏰');
+      } else {
+        await axios.post(`${API_BASE}/processes/scraper/stop`);
+        message.info('Processo do Scraper finalizado.');
+      }
+      setTimeout(carregarStatusProcessos, 1000);
+    } catch (e) {
+      message.error(e.response?.data?.erro ?? 'Erro ao comandar Scraper.');
+    } finally {
+      setActionProcessLoading(prev => ({ ...prev, scraper: false }));
+    }
+  };
+
+  const gerenciarAgente = async (action) => {
+    setActionProcessLoading(prev => ({ ...prev, agent: true }));
+    try {
+      if (action === 'start') {
+        await axios.post(`${API_BASE}/processes/agent/start`);
+        message.success('Agente Ollama iniciado! 🧠');
+      } else {
+        await axios.post(`${API_BASE}/processes/agent/stop`);
+        message.info('Agente Ollama desligado.');
+      }
+      setTimeout(carregarStatusProcessos, 1000);
+    } catch (e) {
+      message.error(e.response?.data?.erro ?? 'Erro ao comandar Agente Ollama.');
+    } finally {
+      setActionProcessLoading(prev => ({ ...prev, agent: false }));
+    }
   };
 
   // Definição das colunas da tabela de leads
@@ -248,6 +349,95 @@ export default function App() {
     }),
   };
 
+  // Componente de Terminal de Logs
+  const renderTerminal = (title, logs, isRunning, onStart, onStop, onStartForce, loadingKey) => (
+    <Card 
+      title={
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+          <Space>
+            <TerminalOutlined style={{ color: '#0d9488' }} />
+            <span style={{ fontWeight: 700 }}>{title}</span>
+          </Space>
+          <Badge 
+            status={isRunning ? 'success' : 'default'} 
+            text={
+              <span style={{ fontWeight: 600, color: isRunning ? '#0f973c' : '#64748b' }}>
+                {isRunning ? 'ATIVO (CONECTADO)' : 'DESLIGADO'}
+              </span>
+            } 
+          />
+        </div>
+      }
+      style={{ minHeight: 450 }}
+    >
+      {/* Botões de Controle */}
+      <Space style={{ marginBottom: 16, width: '100%', justifyContent: 'flex-start' }} wrap>
+        {!isRunning ? (
+          <>
+            {onStartForce && (
+              <Button 
+                type="primary" 
+                icon={<PlayCircleOutlined />} 
+                style={{ background: '#ca8a04', borderColor: '#ca8a04' }}
+                onClick={onStartForce}
+                loading={actionProcessLoading[loadingKey]}
+              >
+                Forçar Execução Agora ⚡
+              </Button>
+            )}
+            <Button 
+              type="primary" 
+              icon={<PlayCircleOutlined />} 
+              onClick={onStart}
+              loading={actionProcessLoading[loadingKey]}
+            >
+              Ligar Daemon
+            </Button>
+          </>
+        ) : (
+          <Button 
+            danger 
+            type="primary" 
+            icon={<StopOutlined />} 
+            onClick={onStop}
+            loading={actionProcessLoading[loadingKey]}
+          >
+            Desligar Robô 🛑
+          </Button>
+        )}
+      </Space>
+
+      {/* Caixa do Console Virtual */}
+      <div 
+        ref={loadingKey === 'scraper' ? scraperTerminalRef : agentTerminalRef}
+        style={{
+          background: '#090b0f',
+          border: '1px solid #1c2130',
+          borderRadius: '8px',
+          padding: '16px',
+          fontFamily: "'Courier New', Courier, monospace",
+          fontSize: '12px',
+          color: '#38bdf8', // Azul Terminal
+          height: '350px',
+          overflowY: 'auto',
+          boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.5)',
+          whiteSpace: 'pre-wrap'
+        }}
+      >
+        {logs.length === 0 ? (
+          <span style={{ color: '#475569' }}>[Console] Nenhuma atividade capturada ainda. Inicie o processo para exibir logs.</span>
+        ) : (
+          logs.map((log, index) => (
+            <div key={index} style={{ marginBottom: 4 }}>
+              <span style={{ color: '#0d9488', marginRight: 8 }}>[{log.timestamp}]</span>
+              <span style={{ color: log.text.startsWith('❌') ? '#ef4444' : '#cbd5e1' }}>{log.text}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </Card>
+  );
+
   return (
     <ConfigProvider theme={customTheme}>
       <Layout style={{ minHeight: '100vh' }}>
@@ -265,117 +455,174 @@ export default function App() {
           </div>
           <Space size="middle">
             <Button icon={<ReloadOutlined />} onClick={carregarDados} loading={loading}>
-              Atualizar Painel
+              Atualizar Dados
             </Button>
           </Space>
         </Header>
 
         {/* Corpo principal */}
-        <Content style={{ padding: '32px 24px', maxWidth: 1400, margin: '0 auto', width: '100%' }}>
+        <Content style={{ padding: '24px', maxWidth: 1440, margin: '0 auto', width: '100%' }}>
           
-          {/* Dashboard KPIs */}
-          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-            <Col xs={12} sm={8} md={4}>
-              <Card size="small">
-                <Badge status="cyan" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Novos Captação</Text>} />
-                <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700 }}>{stats.novo}</Title>
-              </Card>
-            </Col>
-            <Col xs={12} sm={8} md={4}>
-              <Card size="small">
-                <Badge status="warning" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Processando na IA</Text>} />
-                <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700 }}>{stats.em_processamento}</Title>
-              </Card>
-            </Col>
-            <Col xs={12} sm={8} md={4}>
-              <Card size="small" style={{ borderLeft: '3px solid #0d9488 !important' }}>
-                <Badge color="#0d9488" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Prontos p/ Falar</Text>} />
-                <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700, color: '#0d9488' }}>{stats.processado_ia}</Title>
-              </Card>
-            </Col>
-            <Col xs={12} sm={8} md={4}>
-              <Card size="small">
-                <Badge status="processing" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Contatos Feitos</Text>} />
-                <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700 }}>{stats.enviado}</Title>
-              </Card>
-            </Col>
-            <Col xs={12} sm={8} md={4}>
-              <Card size="small">
-                <Badge status="gold" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Convertidos 🔥</Text>} />
-                <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700, color: '#ca8a04' }}>{stats.convertido}</Title>
-              </Card>
-            </Col>
-            <Col xs={12} sm={8} md={4}>
-              <Card size="small">
-                <Badge status="error" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Erros IA</Text>} />
-                <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700, color: '#ef4444' }}>{stats.erro_ia}</Title>
-              </Card>
-            </Col>
-          </Row>
+          {/* Abas Superiores do Sistema */}
+          <Tabs
+            defaultActiveKey="1"
+            type="card"
+            items={[
+              {
+                key: '1',
+                label: (
+                  <span>
+                    <ControlOutlined /> Gestão de Leads
+                  </span>
+                ),
+                children: (
+                  <div>
+                    {/* Dashboard KPIs */}
+                    <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                      <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
+                          <Badge status="cyan" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Novos Captação</Text>} />
+                          <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700 }}>{stats.novo}</Title>
+                        </Card>
+                      </Col>
+                      <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
+                          <Badge status="warning" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Processando na IA</Text>} />
+                          <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700 }}>{stats.em_processamento}</Title>
+                        </Card>
+                      </Col>
+                      <Col xs={12} sm={8} md={4}>
+                        <Card size="small" style={{ borderLeft: '3px solid #0d9488 !important' }}>
+                          <Badge color="#0d9488" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Prontos p/ Falar</Text>} />
+                          <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700, color: '#0d9488' }}>{stats.processado_ia}</Title>
+                        </Card>
+                      </Col>
+                      <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
+                          <Badge status="processing" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Contatos Feitos</Text>} />
+                          <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700 }}>{stats.enviado}</Title>
+                        </Card>
+                      </Col>
+                      <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
+                          <Badge status="gold" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Convertidos 🔥</Text>} />
+                          <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700, color: '#ca8a04' }}>{stats.convertido}</Title>
+                        </Col>
+                      </Col>
+                      <Col xs={12} sm={8} md={4}>
+                        <Card size="small">
+                          <Badge status="error" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Erros IA</Text>} />
+                          <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700, color: '#ef4444' }}>{stats.erro_ia}</Title>
+                        </Card>
+                      </Col>
+                    </Row>
 
-          {/* Filtros e Tabela */}
-          <Card>
-            <Row gutter={[16, 16]} style={{ marginBottom: 20 }} align="middle" justify="space-between">
-              <Col xs={24} md={12}>
-                <Space size="middle" style={{ width: '100%' }}>
-                  <Search
-                    placeholder="Buscar por nome, original ou cidade..."
-                    allowClear
-                    enterButton={<SearchOutlined />}
-                    value={busca}
-                    onChange={(e) => setBusca(e.target.value)}
-                    onSearch={handleBusca}
-                    style={{ width: 300 }}
-                  />
-                  <Select
-                    placeholder="Filtrar por Status"
-                    allowClear
-                    value={statusFiltro || undefined}
-                    onChange={(val) => setStatusFiltro(val || '')}
-                    style={{ width: 180 }}
-                    options={[
-                      { value: 'novo', label: 'Novo na fila' },
-                      { value: 'em_processamento', label: 'Em processamento' },
-                      { value: 'processado_ia', label: 'Pronto para contato (IA)' },
-                      { value: 'enviado', label: 'Contato realizado' },
-                      { value: 'convertido', label: 'Convertido' },
-                      { value: 'erro_ia', label: 'Erro na IA' },
-                    ]}
-                  />
-                </Space>
-              </Col>
-              
-              <Col xs={24} md={12} style={{ textAlign: 'right' }}>
-                <Space>
-                  {selectedRowKeys.length > 0 && (
-                    <Button 
-                      type="primary" 
-                      icon={<SendOutlined />}
-                      onClick={processarGrupoDisparo}
-                      loading={groupLoading}
-                      style={{ background: '#ca8a04', borderColor: '#ca8a04' }}
-                    >
-                      Disparar Lote ({selectedRowKeys.length} selecionados)
-                    </Button>
-                  )}
-                </Space>
-              </Col>
-            </Row>
+                    {/* Filtros e Tabela */}
+                    <Card>
+                      <Row gutter={[16, 16]} style={{ marginBottom: 20 }} align="middle" justify="space-between">
+                        <Col xs={24} md={12}>
+                          <Space size="middle" style={{ width: '100%' }}>
+                            <Search
+                              placeholder="Buscar por nome ou cidade..."
+                              allowClear
+                              enterButton={<SearchOutlined />}
+                              value={busca}
+                              onChange={(e) => setBusca(e.target.value)}
+                              onSearch={handleBusca}
+                              style={{ width: 300 }}
+                            />
+                            <Select
+                              placeholder="Filtrar por Status"
+                              allowClear
+                              value={statusFiltro || undefined}
+                              onChange={(val) => setStatusFiltro(val || '')}
+                              style={{ width: 180 }}
+                              options={[
+                                { value: 'novo', label: 'Novo na fila' },
+                                { value: 'em_processamento', label: 'Em processamento' },
+                                { value: 'processado_ia', label: 'Pronto para contato (IA)' },
+                                { value: 'enviado', label: 'Contato realizado' },
+                                { value: 'convertido', label: 'Convertido' },
+                                { value: 'erro_ia', label: 'Erro na IA' },
+                              ]}
+                            />
+                          </Space>
+                        </Col>
+                        
+                        <Col xs={24} md={12} style={{ textAlign: 'right' }}>
+                          {selectedRowKeys.length > 0 && (
+                            <Button 
+                              type="primary" 
+                              icon={<SendOutlined />}
+                              onClick={processarGrupoDisparo}
+                              loading={groupLoading}
+                              style={{ background: '#ca8a04', borderColor: '#ca8a04' }}
+                            >
+                              Disparar Lote ({selectedRowKeys.length} selecionados)
+                            </Button>
+                          )}
+                        </Col>
+                      </Row>
 
-            <Table 
-              rowSelection={rowSelection}
-              columns={columns} 
-              dataSource={leads.map(l => ({ ...l, key: l.id }))} 
-              loading={loading}
-              pagination={{
-                current: page,
-                pageSize: pageSize,
-                total: total,
-                showSizeChanger: true,
-                onChange: (p, ps) => { setPage(p); setPageSize(ps); }
-              }}
-            />
-          </Card>
+                      <Table 
+                        rowSelection={rowSelection}
+                        columns={columns} 
+                        dataSource={leads.map(l => ({ ...l, key: l.id }))} 
+                        loading={loading}
+                        pagination={{
+                          current: page,
+                          pageSize: pageSize,
+                          total: total,
+                          showSizeChanger: true,
+                          onChange: (p, ps) => { setPage(p); setPageSize(ps); }
+                        }}
+                      />
+                    </Card>
+                  </div>
+                ),
+              },
+              {
+                key: '2',
+                label: (
+                  <span>
+                    <TerminalOutlined /> Console do Agente (Live)
+                  </span>
+                ),
+                children: (
+                  <div style={{ marginTop: 8 }}>
+                    <Paragraph style={{ color: '#94a3b8', marginBottom: 20 }}>
+                      Monitore e controle a automação em tempo real. Ligue o scraper de captação e o agente
+                      Ollama diretamente abaixo para acompanhar a extração do navegador e o processamento cognitivo da IA.
+                    </Paragraph>
+                    <Row gutter={[20, 20]}>
+                      <Col xs={24} lg={12}>
+                        {renderTerminal(
+                          '1. Robô Scraper (Playwright/Maps)', 
+                          scraperLogs, 
+                          processStatus.scraper === 'running', 
+                          () => gerenciarScraper('start', false), 
+                          () => gerenciarScraper('stop'), 
+                          () => gerenciarScraper('start', true), 
+                          'scraper'
+                        )}
+                      </Col>
+                      <Col xs={24} lg={12}>
+                        {renderTerminal(
+                          '2. Agente Cognitivo (Ollama qwen2.5)', 
+                          agentLogs, 
+                          processStatus.agent === 'running', 
+                          () => gerenciarAgente('start'), 
+                          () => gerenciarAgente('stop'), 
+                          null, 
+                          'agent'
+                        )}
+                      </Col>
+                    </Row>
+                  </div>
+                ),
+              }
+            ]}
+          />
 
         </Content>
 
@@ -408,7 +655,6 @@ export default function App() {
           {selectedLead && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               
-              {/* Card de Informações Base */}
               <div>
                 <Title level={4} style={{ margin: 0 }}>{selectedLead.nome_limpo_ia || selectedLead.nome_original}</Title>
                 <Text style={{ fontSize: 11, color: '#64748b' }}>Original: {selectedLead.nome_original}</Text>
@@ -472,7 +718,7 @@ export default function App() {
               {selectedLead.mensagem_personalizada && (
                 <Card 
                   title={
-                    <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                       <span style={{ color: '#ca8a04', fontWeight: 700, fontSize: 14 }}>💬 Abordagem Humana Sugerida</span>
                       <Button 
                         size="small" 
@@ -481,7 +727,7 @@ export default function App() {
                       >
                         Copiar
                       </Button>
-                    </Space>
+                    </div>
                   }
                   style={{ border: '1px solid #ca8a04 !important', background: '#191715 !important' }}
                 >

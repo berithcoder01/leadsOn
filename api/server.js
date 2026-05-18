@@ -4,6 +4,14 @@ import cors from '@fastify/cors';
 
 import { listarLeads, buscarLead, atualizarStatus, criarGrupoDisparo } from './routes/leads.js';
 import { buscarStats } from './routes/stats.js';
+import { 
+  obterStatusProcessos, 
+  iniciarScraperProcesso, 
+  pararScraperProcesso, 
+  iniciarAgentProcesso, 
+  pararAgentProcesso, 
+  fazerStreamingLogs 
+} from './routes/processes.js';
 
 const PORT = Number(process.env.API_PORT) || 3001;
 const app = Fastify({ logger: true });
@@ -21,6 +29,14 @@ app.post('/api/leads/grupo',      criarGrupoDisparo);
 
 // ── Rotas de Estatísticas ───────────────────────────────────
 app.get('/api/stats',             buscarStats);
+
+// ── Rotas de Controle de Processos (Daemon Integrado) ───────
+app.get('/api/processes/status',        obterStatusProcessos);
+app.post('/api/processes/scraper/start', iniciarScraperProcesso);
+app.post('/api/processes/scraper/stop',  pararScraperProcesso);
+app.post('/api/processes/agent/start',   iniciarAgentProcesso);
+app.post('/api/processes/agent/stop',    pararAgentProcesso);
+app.get('/api/processes/logs',           fazerStreamingLogs);
 
 // ── Health Check ────────────────────────────────────────────
 app.get('/health', async () => ({ ok: true, timestamp: new Date().toISOString() }));
