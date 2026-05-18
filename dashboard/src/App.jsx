@@ -507,7 +507,7 @@ export default function App() {
                         <Card size="small">
                           <Badge status="gold" text={<Text style={{ fontSize: 12, color: '#94a3b8' }}>Convertidos 🔥</Text>} />
                           <Title level={3} style={{ margin: '8px 0 0 0', fontWeight: 700, color: '#ca8a04' }}>{stats.convertido}</Title>
-                        </Col>
+                        </Card>
                       </Col>
                       <Col xs={12} sm={8} md={4}>
                         <Card size="small">
